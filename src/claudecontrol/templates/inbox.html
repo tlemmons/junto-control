@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}{{ project }} — claudeControl{% endblock %}
+{% block body %}
+<main class="min-h-screen flex flex-col" x-data="{ live: false }">
+  <header class="sticky top-0 z-10 bg-slate-950/90 backdrop-blur border-b border-slate-800
+                 px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <a href="/projects" class="text-slate-400 hover:text-slate-200 text-sm">← projects</a>
+      <h1 class="font-semibold text-lg">{{ project }}</h1>
+      <span class="text-xs text-slate-500">{{ messages|length }} msg</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-xs flex items-center gap-1.5">
+        <span class="size-2 rounded-full" :class="live ? 'bg-emerald-400' : 'bg-slate-600'"></span>
+        <span x-text="live ? 'live' : 'connecting…'"></span>
+      </span>
+      <a href="/compose" class="bg-sky-600 hover:bg-sky-500 text-white text-sm rounded-lg px-3 py-1.5">compose</a>
+      <a href="/backlog" class="text-sm text-slate-400 hover:text-slate-200">backlog</a>
+      <a href="/specs" class="text-sm text-slate-400 hover:text-slate-200">specs</a>
+      <a href="/logout" class="text-sm text-slate-400 hover:text-slate-200">sign out</a>
+    </div>
+  </header>
+
+  <section
+    hx-ext="ws"
+    ws-connect="/ws/inbox?project={{ project }}"
+    @htmx:ws-open.window="live = true"
+    @htmx:ws-close.window="live = false"
+    class="flex-1 px-4 py-4 space-y-2"
+  >
+    <div id="messages" class="space-y-2">
+      {% for m in messages %}
+        {% include "_message.html" %}
+      {% else %}
+      <p class="text-slate-500 text-sm py-8 text-center">no messages yet. they'll appear here as agents send them.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <script>
+    // The WS endpoint sends JSON; we render to HTML on the client.
+    document.addEventListener('htmx:wsAfterMessage', (evt) => {
+      try {
+        const data = JSON.parse(evt.detail.message);
+        if (data.type !== 'inbox.message') return;
+        const m = data.message;
+        const fromLabel = (m.from || '?') + (data.agent ? ' → ' + data.agent : '');
+        const cat = m.category || 'info';
+        const human = m.sent_by_human ? '<span class="text-amber-400 text-xs ml-1">human</span>' : '';
+        const reqHuman = m.require_human ? '<span class="text-rose-400 text-xs ml-1">needs review</span>' : '';
+        const html = `
+          <article class="msg-enter bg-slate-900 border border-slate-800 rounded-xl p-3" data-id="${m.id}">
+            <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+              <div class="truncate">
+                <span class="font-medium text-slate-200">${escapeHTML(fromLabel)}</span>
+                <span class="ml-2 px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">${escapeHTML(cat)}</span>
+                ${human}${reqHuman}
+              </div>
+              <time class="shrink-0 ml-2">${escapeHTML(m.created || '')}</time>
+            </div>
+            <div class="whitespace-pre-wrap text-sm">${escapeHTML(m.message || '')}</div>
+          </article>
+        `;
+        const target = document.getElementById('messages');
+        const wrap = document.createElement('div');
+        wrap.innerHTML = html.trim();
+        target.prepend(wrap.firstChild);
+      } catch (e) { console.error('ws parse error', e); }
+    });
+    function escapeHTML(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[c]);
+    }
+  </script>
+</main>
+{% endblock %}

@@ -1,0 +1,13 @@
+{# Single message card. Used both server-rendered and as the WS template. #}
+<article class="bg-slate-900 border border-slate-800 rounded-xl p-3" data-id="{{ m.id }}">
+  <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+    <div class="truncate">
+      <span class="font-medium text-slate-200">{{ m["from"] }}{% if m.agent %} → {{ m.agent }}{% endif %}</span>
+      <span class="ml-2 px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">{{ m.category or "info" }}</span>
+      {% if m.sent_by_human %}<span class="text-amber-400 text-xs ml-1">human</span>{% endif %}
+      {% if m.require_human %}<span class="text-rose-400 text-xs ml-1">needs review</span>{% endif %}
+    </div>
+    <time class="shrink-0 ml-2">{{ m.created }}</time>
+  </div>
+  <div class="whitespace-pre-wrap text-sm">{{ m.message }}</div>
+</article>

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}pick a project — claudeControl{% endblock %}
+{% block body %}
+<main class="min-h-screen px-4 py-8 max-w-3xl mx-auto">
+  <header class="flex items-baseline justify-between mb-6">
+    <h1 class="text-xl font-semibold">pick a project</h1>
+    <a href="/logout" class="text-sm text-slate-400 hover:text-slate-200">sign out</a>
+  </header>
+
+  <p class="text-slate-400 text-sm mb-4">
+    each project has its own roster of agents. pick one to land in its inbox.
+  </p>
+
+  <ul class="space-y-2">
+    {% for p in projects %}
+    <li>
+      <form method="post" action="/projects/select" class="contents">
+        <input type="hidden" name="project" value="{{ p.name }}">
+        <button type="submit"
+                class="w-full text-left bg-slate-900 hover:bg-slate-800 border border-slate-800
+                       rounded-xl px-4 py-3 transition flex items-center justify-between">
+          <span class="font-medium">{{ p.name }}</span>
+          <span class="text-xs text-slate-400">
+            {{ p.agent_count }} agent{{ '' if p.agent_count == 1 else 's' }}
+            {% if p.active_24h %}<span class="ml-2 text-emerald-400">● {{ p.active_24h }} active</span>{% endif %}
+          </span>
+        </button>
+      </form>
+    </li>
+    {% else %}
+    <li class="text-slate-500 text-sm">no projects found in agent registry.</li>
+    {% endfor %}
+  </ul>
+</main>
+{% endblock %}

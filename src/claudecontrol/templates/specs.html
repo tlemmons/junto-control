@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}specs — claudeControl{% endblock %}
+{% block body %}
+<main class="min-h-screen px-4 py-4 max-w-4xl mx-auto">
+  <header class="flex items-center justify-between mb-4">
+    <a href="/inbox" class="text-slate-400 hover:text-slate-200 text-sm">← inbox</a>
+    <h1 class="font-semibold text-lg">specs</h1>
+    <a href="/backlog" class="text-sm text-slate-400 hover:text-slate-200">backlog →</a>
+  </header>
+
+  <form method="get" action="/specs" class="grid grid-cols-2 gap-2 mb-4">
+    <select name="project"
+            class="rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm">
+      <option value="">all projects</option>
+      {% for p in projects %}
+      <option value="{{ p }}" {% if p == filter_project %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="bg-sky-600 hover:bg-sky-500 text-white rounded-lg py-2 text-sm">
+      filter
+    </button>
+  </form>
+
+  {% if error %}
+  <p class="text-rose-300 text-sm mb-2">{{ error }}</p>
+  {% endif %}
+
+  <p class="text-xs text-slate-500 mb-2">{{ specs|length }} spec{{ '' if specs|length == 1 else 's' }}</p>
+
+  <ul class="space-y-2">
+    {% for s in specs %}
+    <li>
+      <a href="/specs/view?name={{ s.name | urlencode }}{% if s.project %}&project={{ s.project | urlencode }}{% endif %}"
+         class="block bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl p-3 transition">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-medium truncate">{{ s.name }}</h3>
+          <span class="text-xs text-slate-400 shrink-0">v{{ s.version }}</span>
+        </div>
+        <div class="text-xs text-slate-400 flex flex-wrap gap-x-3">
+          {% if s.project %}<span>{{ s.project }}</span>{% endif %}
+          {% if s.spec_type %}<span class="text-sky-300">{{ s.spec_type }}</span>{% endif %}
+          {% if s.owner %}<span>owner: {{ s.owner }}</span>{% endif %}
+        </div>
+      </a>
+    </li>
+    {% else %}
+    <li class="text-slate-500 text-sm py-8 text-center">no specs found.</li>
+    {% endfor %}
+  </ul>
+</main>
+{% endblock %}

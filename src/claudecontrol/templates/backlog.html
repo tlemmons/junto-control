@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}backlog — claudeControl{% endblock %}
+{% block body %}
+<main class="min-h-screen px-4 py-4 max-w-4xl mx-auto">
+  <header class="flex items-center justify-between mb-4">
+    <a href="/inbox" class="text-slate-400 hover:text-slate-200 text-sm">← inbox</a>
+    <h1 class="font-semibold text-lg">backlog</h1>
+    <a href="/specs" class="text-sm text-slate-400 hover:text-slate-200">specs →</a>
+  </header>
+
+  <form method="get" action="/backlog" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+    <select name="project"
+            class="rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm">
+      <option value="">all projects</option>
+      {% for p in projects %}
+      <option value="{{ p }}" {% if p == filter_project %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+    <select name="status"
+            class="rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm">
+      <option value="">any status</option>
+      {% for s in ["open","in_progress","blocked","retest","needs_info","deferred","done"] %}
+      <option value="{{ s }}" {% if s == filter_status %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <select name="priority"
+            class="rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm">
+      <option value="">any priority</option>
+      {% for p in ["critical","high","medium","low"] %}
+      <option value="{{ p }}" {% if p == filter_priority %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="assigned_to" value="{{ filter_assigned_to or '' }}" placeholder="assigned to"
+           class="rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm">
+    <button type="submit"
+            class="col-span-2 sm:col-span-4 bg-sky-600 hover:bg-sky-500 text-white rounded-lg py-2 text-sm">
+      filter
+    </button>
+  </form>
+
+  {% if error %}
+  <p class="text-rose-300 text-sm mb-2">{{ error }}</p>
+  {% endif %}
+
+  <p class="text-xs text-slate-500 mb-2">{{ items|length }} item{{ '' if items|length == 1 else 's' }}</p>
+
+  <ul class="space-y-2">
+    {% for item in items %}
+    <li class="bg-slate-900 border border-slate-800 rounded-xl p-3">
+      <div class="flex items-center justify-between gap-2 mb-1">
+        <h3 class="font-medium truncate">{{ item.title }}</h3>
+        <div class="flex items-center gap-1 shrink-0">
+          {% set p = item.priority or "medium" %}
+          {% set pc = {"critical":"bg-rose-700","high":"bg-amber-700","medium":"bg-slate-700","low":"bg-slate-800"}[p] %}
+          <span class="text-xs px-1.5 py-0.5 rounded {{ pc }}">{{ p }}</span>
+          {% set s = item.status or "open" %}
+          {% set sc = {"open":"bg-sky-900","in_progress":"bg-emerald-900","blocked":"bg-rose-900","retest":"bg-amber-900","done":"bg-slate-800"}.get(s,"bg-slate-800") %}
+          <span class="text-xs px-1.5 py-0.5 rounded {{ sc }}">{{ s }}</span>
+        </div>
+      </div>
+      <div class="text-xs text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
+        <span>{{ item.project }}</span>
+        {% if item.assigned_to %}<span>→ {{ item.assigned_to }}</span>{% endif %}
+        {% if item.target_version %}<span class="text-sky-300">{{ item.target_version }}</span>{% endif %}
+        {% if item.tags %}<span class="text-slate-500">{{ item.tags|join(", ") }}</span>{% endif %}
+        <code class="text-slate-600 ml-auto">{{ item.id }}</code>
+      </div>
+    </li>
+    {% else %}
+    <li class="text-slate-500 text-sm py-8 text-center">no items match.</li>
+    {% endfor %}
+  </ul>
+</main>
+{% endblock %}

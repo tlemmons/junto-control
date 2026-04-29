@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ spec.spec_name }} — claudeControl{% endblock %}
+{% block body %}
+<main class="min-h-screen px-4 py-4 max-w-4xl mx-auto">
+  <header class="flex items-center justify-between mb-4">
+    <a href="/specs" class="text-slate-400 hover:text-slate-200 text-sm">← specs</a>
+    <h1 class="font-semibold text-lg truncate">{{ spec.spec_name }}</h1>
+    <span class="text-xs text-slate-400">v{{ spec.version }}</span>
+  </header>
+
+  <section class="text-xs text-slate-400 flex flex-wrap gap-x-3 mb-3">
+    {% if spec.owner %}<span>owner: {{ spec.owner }}</span>{% endif %}
+    {% if spec.spec_type %}<span class="text-sky-300">{{ spec.spec_type }}</span>{% endif %}
+    {% if spec.created %}<span>created {{ spec.created }}</span>{% endif %}
+    {% if spec.updated %}<span>updated {{ spec.updated }}</span>{% endif %}
+    {% if spec.tags %}<span>tags: {{ spec.tags|join(", ") }}</span>{% endif %}
+  </section>
+
+  <article class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+    <pre class="whitespace-pre-wrap text-xs leading-relaxed font-mono">{{ spec.content }}</pre>
+  </article>
+</main>
+{% endblock %}

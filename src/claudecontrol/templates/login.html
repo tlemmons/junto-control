@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}sign in — claudeControl{% endblock %}
+{% block body %}
+<main class="min-h-screen flex items-center justify-center px-4">
+  <form method="post" action="/login"
+        class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">claudeControl</h1>
+      <p class="text-sm text-slate-400 mt-1">sign in to talk to your agents.</p>
+    </div>
+
+    {% if error %}
+    <div class="bg-rose-950/60 border border-rose-800 text-rose-200 text-sm rounded-lg p-3">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <label class="block">
+      <span class="text-xs uppercase tracking-wide text-slate-400">passphrase</span>
+      <input name="passphrase" type="password" autofocus required autocomplete="current-password"
+             class="mt-1 w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2
+                    text-base outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500">
+    </label>
+
+    <button type="submit"
+            class="w-full bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-medium
+                   rounded-lg py-2 transition">
+      sign in
+    </button>
+
+    <p class="text-xs text-slate-500 text-center pt-2">
+      single-user mode. v{{ version }}
+    </p>
+  </form>
+</main>
+{% endblock %}
