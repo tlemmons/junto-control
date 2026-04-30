@@ -3,12 +3,16 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 import structlog
 from mcp import ClientSession
+from mcp import types as mcp_types
 from mcp.client.streamable_http import streamablehttp_client
+from mcp.shared.session import RequestResponder
+from pydantic import AnyUrl
 
 from .config import Settings
 
@@ -57,6 +61,20 @@ class MCPClient:
         self._connected = asyncio.Event()
         self._stopping = False
         self._last_connected_at: float | None = None
+        self._notification_handler: Callable[[str], Awaitable[None]] | None = None
+        self._reconnect_handler: Callable[[], Awaitable[None]] | None = None
+
+    def set_notification_handler(
+        self, handler: Callable[[str], Awaitable[None]] | None
+    ) -> None:
+        """Register a callback fired with the resource URI on resources/updated."""
+        self._notification_handler = handler
+
+    def register_reconnect_handler(
+        self, handler: Callable[[], Awaitable[None]] | None
+    ) -> None:
+        """Register a callback fired after every successful (re)connect."""
+        self._reconnect_handler = handler
 
     @property
     def session_id(self) -> str | None:
@@ -117,7 +135,11 @@ class MCPClient:
                     streamablehttp_client(self._settings.mcp_url)
                 )
                 session = await stack.enter_async_context(
-                    ClientSession(read_stream, write_stream)
+                    ClientSession(
+                        read_stream,
+                        write_stream,
+                        message_handler=self._handle_message,
+                    )
                 )
                 init_result = await session.initialize()
                 tools_result = await session.list_tools()
@@ -176,6 +198,10 @@ class MCPClient:
             except Exception:
                 await stack.aclose()
                 raise
+        # Fire reconnect handler outside the lock so it can call back into us.
+        if self._reconnect_handler is not None:
+            with contextlib.suppress(Exception):
+                await self._reconnect_handler()
 
     async def _teardown(self) -> None:
         self._connected.clear()
@@ -194,6 +220,58 @@ class MCPClient:
             with contextlib.suppress(Exception):
                 await self._stack.aclose()
             self._stack = None
+
+    async def subscribe_inbox(self, uri: str) -> None:
+        """Send resources/subscribe for the given inbox URI."""
+        if not self._session or not self._connected.is_set():
+            raise RuntimeError("mcp session not connected")
+        await self._session.subscribe_resource(AnyUrl(uri))
+
+    async def unsubscribe_inbox(self, uri: str) -> None:
+        if not self._session or not self._connected.is_set():
+            return
+        with contextlib.suppress(Exception):
+            await self._session.unsubscribe_resource(AnyUrl(uri))
+
+    async def read_resource(self, uri: str) -> dict[str, Any]:
+        """Fetch an inbox resource and return its decoded JSON payload."""
+        if not self._session or not self._connected.is_set():
+            raise RuntimeError("mcp session not connected")
+        result = await self._session.read_resource(AnyUrl(uri))
+        for content in result.contents:
+            text = getattr(content, "text", None)
+            if text is None:
+                continue
+            import json
+
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                continue
+        return {}
+
+    async def _handle_message(
+        self,
+        message: (
+            RequestResponder[mcp_types.ServerRequest, mcp_types.ClientResult]
+            | mcp_types.ServerNotification
+            | Exception
+        ),
+    ) -> None:
+        """Filter notifications for resources/updated and fan to the broker."""
+        if not isinstance(message, mcp_types.ServerNotification):
+            return
+        notif = message.root
+        if not isinstance(notif, mcp_types.ResourceUpdatedNotification):
+            return
+        cb = self._notification_handler
+        if cb is None:
+            return
+        uri = str(notif.params.uri)
+        try:
+            await cb(uri)
+        except Exception as exc:
+            log.warning("inbox_notification_handler_failed", uri=uri, error=str(exc))
 
     async def _heartbeat_loop(self) -> None:
         while not self._stopping:

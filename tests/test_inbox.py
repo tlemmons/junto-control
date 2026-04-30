@@ -104,6 +104,7 @@ async def test_unsubscribe_drops_subscriber(fake_client: Any) -> None:
 @pytest.mark.asyncio
 async def test_watch_project_diffs_set(fake_client: Any) -> None:
     fake_client.call.return_value = _wrap({"agents": [{"instance": "alpha"}, {"instance": "beta"}]})
+    fake_client.capabilities = SimpleNamespace(inbox_resource_supported=False)
     broker = InboxBroker(fake_client)
     keys = await broker.watch_project("nimbus")
     agent_names = {k.agent for k in keys}
@@ -113,3 +114,86 @@ async def test_watch_project_diffs_set(fake_client: Any) -> None:
         await broker._stop_stream(k)
     # Drain any pending task cancellations.
     await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_subscribe_path_emits_on_notification(fake_client: Any) -> None:
+    """When inbox_resource_supported, broker subscribes and reads on notifications."""
+    fake_client.capabilities = SimpleNamespace(inbox_resource_supported=True)
+    fake_client.subscribe_inbox = AsyncMock()
+    fake_client.unsubscribe_inbox = AsyncMock()
+    fake_client.read_resource = AsyncMock(
+        return_value={"messages": [_msg("m2"), _msg("m1")]}
+    )
+    # Bootstrap call goes through .call("memory_get_messages", ...) and returns m1 only,
+    # so when the resource read later sees m2+m1, only m2 is new.
+    fake_client.call.return_value = _wrap({"messages": [_msg("m1")]})
+
+    broker = InboxBroker(fake_client)
+    sub = broker.subscribe()
+    key = InboxKey("nimbus", "main")
+    async with asyncio.timeout(2):
+        await broker._start_stream(key)
+        # Let the bootstrap + subscribe happen.
+        for _ in range(10):
+            state = broker._streams[key]
+            if state.mode == "subscribe" and state.notify is not None:
+                break
+            await asyncio.sleep(0.01)
+        assert state.mode == "subscribe"
+        fake_client.subscribe_inbox.assert_awaited_with("inbox://nimbus/main")
+        # Server pushes a notification → broker should fetch and emit m2 only.
+        await broker.on_inbox_notification("inbox://nimbus/main")
+        for _ in range(20):
+            if not sub.queue.empty():
+                break
+            await asyncio.sleep(0.01)
+        assert sub.queue.qsize() == 1
+        event = sub.queue.get_nowait()
+        assert event.message["id"] == "m2"
+        await broker._stop_stream(key)
+    fake_client.unsubscribe_inbox.assert_awaited_with("inbox://nimbus/main")
+
+
+@pytest.mark.asyncio
+async def test_subscribe_failure_falls_back_to_poll(fake_client: Any) -> None:
+    """If subscribe raises, broker degrades to poll mode for that stream."""
+    fake_client.capabilities = SimpleNamespace(inbox_resource_supported=True)
+    fake_client.subscribe_inbox = AsyncMock(side_effect=RuntimeError("nope"))
+    fake_client.unsubscribe_inbox = AsyncMock()
+    fake_client.call.return_value = _wrap({"messages": []})
+
+    broker = InboxBroker(fake_client)
+    key = InboxKey("nimbus", "main")
+    async with asyncio.timeout(2):
+        await broker._start_stream(key)
+        for _ in range(10):
+            state = broker._streams[key]
+            if state.mode == "poll":
+                break
+            await asyncio.sleep(0.01)
+        assert state.mode == "poll"
+        await broker._stop_stream(key)
+
+
+@pytest.mark.asyncio
+async def test_on_reconnect_resubscribes_subscribe_streams(fake_client: Any) -> None:
+    fake_client.capabilities = SimpleNamespace(inbox_resource_supported=True)
+    fake_client.subscribe_inbox = AsyncMock()
+
+    broker = InboxBroker(fake_client)
+    key_a = InboxKey("nimbus", "alpha")
+    key_b = InboxKey("ha", "sage")
+    broker._streams[key_a] = type(broker._streams[key_a] if broker._streams else None) or None  # noqa: E501
+    # Simulate two streams already running: one subscribe, one poll.
+    from claudecontrol.inbox import InboxStreamState
+
+    broker._streams = {
+        key_a: InboxStreamState(mode="subscribe", notify=asyncio.Queue()),
+        key_b: InboxStreamState(mode="poll"),
+    }
+    broker._uri_to_key = {key_a.uri(): key_a, key_b.uri(): key_b}
+
+    await broker.on_reconnect()
+    # Only the subscribe-mode stream should have re-issued subscribe_inbox.
+    fake_client.subscribe_inbox.assert_awaited_once_with("inbox://nimbus/alpha")

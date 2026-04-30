@@ -40,6 +40,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         client = MCPClient(settings)
         broker = InboxBroker(client)
+        client.set_notification_handler(broker.on_inbox_notification)
+        client.register_reconnect_handler(broker.on_reconnect)
         app.state.mcp = client
         app.state.broker = broker
         app.state.settings = settings
