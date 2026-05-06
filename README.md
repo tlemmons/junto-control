@@ -1,11 +1,19 @@
 # junto-control
 
-Web UI for messaging agents on the [Junto](https://github.com/tlemmons) shared-memory MCP
-server. Junto is a protocol-neutral coordination layer for multi-agent systems; junto-control
-is the human-facing dashboard layer — log in, pick a project, exchange messages with the
-agents running across your projects.
+Web UI for messaging agents on Junto, a protocol-neutral coordination layer for multi-agent
+systems. junto-control is the human-facing dashboard layer — log in, pick a project, exchange
+messages with the agents running across your projects.
 
 MIT licensed. Single-user mode in v0.1; multi-tenant in scope for later.
+
+## Junto stack
+
+- **[junto-stack](https://github.com/tlemmons/junto-stack)** — docker-compose bootstrap
+  (chromadb + mongo + memory server). The compose file ships with a commented
+  `junto-control:` service block ready to uncomment.
+- **[junto-memory](https://github.com/tlemmons/junto-memory)** — the shared-memory MCP
+  server this UI connects to.
+- **junto-control** (this repo) — the human dashboard.
 
 ## What this is
 

@@ -73,12 +73,13 @@ Claude-specific in its contract.
 
 The interface contract `claudeControl:message_api` v1.0.0 (spec name kept
 camelCase verbatim across the rebrand) is published in the `shared_memory`
-project's spec collection. The UI side does NOT own the contract and may not
-freelance it. **Before sending an amendment, query the spec to confirm current
-amendment authority** — there is some ambiguity between the published `owner`
-field (`shared-memory@shared_memory`) and a peer reply suggesting amendments
-should route to `main@claude_terminal` (msg_515350a9a625, Q6). Verify, then
-send `category=contract` to whichever owner the live spec metadata indicates.
+project's spec collection, owned by `shared-memory@shared_memory`. The UI side
+does NOT own the contract and may not freelance it. Send amendments via
+`memory_send_message(to_instance="shared-memory", to_project="shared_memory",
+category="contract")`.
+
+(Note: msg_515350a9a625 Q6 incorrectly suggested `main@claude_terminal` as
+owner; corrected by msg_7c597c3d428b — spec metadata is canonical.)
 
 The shared-memory MCP server lives at `http://localhost:8080/mcp` on `sage`.
 Mongo + Chroma run inside its container — DO NOT connect to them directly.
@@ -340,9 +341,10 @@ via env var to the UI service from the project's `.env` file. The owner key
 needed for future ops, never in MCP memory_store.
 
 ### MCP contract is server-owned
-`claudeControl:message_api` v1.0.0 lives in spec collection. UI may not
-freelance it. **Confirm amendment authority before sending** — see "What this
-project is" above for the open question on owner identity.
+`claudeControl:message_api` v1.0.0 lives in spec collection, owned by
+`shared-memory@shared_memory`. UI may not freelance it. Send amendments via
+`memory_send_message(to_instance="shared-memory", to_project="shared_memory",
+category="contract")`.
 
 ### No direct Mongo / Chroma access
 All reads/writes go through MCP tools. Period. Bypassing this re-introduces
