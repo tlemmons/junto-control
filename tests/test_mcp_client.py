@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
-from claudecontrol.mcp_client import REQUIRED_TOOLS, Capabilities, _unwrap_tool_result
+from juntocontrol.mcp_client import REQUIRED_TOOLS, Capabilities, _unwrap_tool_result
 
 
 def test_required_tools_match_spec() -> None:

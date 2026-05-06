@@ -26,7 +26,7 @@ log = structlog.get_logger(__name__)
 
 
 def _templates_dir() -> Path:
-    return Path(resources.files("claudecontrol")) / "templates"  # type: ignore[arg-type]
+    return Path(resources.files("juntocontrol")) / "templates"  # type: ignore[arg-type]
 
 
 def build_router(store: SessionStore, login_passphrase: str) -> APIRouter:

@@ -1,4 +1,13 @@
-# claudeControl — web app for talking to Claude agents
+# junto-control — web app for messaging agents on Junto
+
+**Rebranded 2026-05-06 from `claudeControl` → `junto-control` (Tom directive).**
+Python package: `juntocontrol`. Repo: `tlemmons/junto-control`. License: MIT.
+
+**Local working directory and MCP identity values are deliberately unchanged**
+(`/home/tlemmons/sharedUtils/claudeControl`, project=`claudecontrol`,
+agent=`claude-control`) — those are data-keyed in shared-memory and migrating
+them would orphan state spec, registered functions, and message threads.
+Migration is deferred until shared-memory ships project-rename tooling.
 
 ## Claude Identity (REQUIRED — DO THIS FIRST)
 
@@ -13,14 +22,15 @@
 
 2. Set terminal title:
 ```bash
-echo -ne "\033]0;[claude-control] claudeControl\007"
+echo -ne "\033]0;[claude-control] junto-control\007"
 ```
 
 3. Start shared memory session (NO api_key — you connect as agent, not user).
-   **CRITICAL: project name is lowercase `claudecontrol`** — the server's project
-   registry stores it lowercase, and there's a known case-sensitivity bug
-   (backlog_a74d0f6a7f38) that breaks inbox filtering if the session uses a
-   different casing than the messages do. Always pass project in lowercase.
+   **Project name is lowercase `claudecontrol`** — kept for data continuity
+   across the rebrand. Server normalizes case at every tool boundary as of
+   2026-04-30 (commit `d8456f4`, `helpers.normalize_project`), so casing no
+   longer drives the bug it once did, but defensive lowercase-on-write keeps
+   code portable to other shared-memory deployments.
 
 ```python
 memory_start_session(
@@ -35,27 +45,40 @@ memory_start_session(
    reads at startup — `go` does it deterministically.
 
 ### Naming convention reminder
-- **Project name** in MCP calls: `claudecontrol` (lowercase, canonical)
-- **Spec name**: `claudeControl:message_api` (camelCase verbatim — spec names
-  are stored as-is, not normalized)
-- **Agent name**: `claude-control` (lowercase with hyphen)
-- **Directory / display**: `claudeControl` (camelCase, human-friendly)
 
-When in doubt for the `project=` parameter, use lowercase.
+Three distinct naming layers — keep them straight:
+
+| Layer | Value | Why |
+|-------|-------|-----|
+| Python package | `juntocontrol` | post-rebrand code identity (`from juntocontrol.X`) |
+| Repo / public name | `junto-control` | `tlemmons/junto-control` |
+| Local working dir | `/home/tlemmons/sharedUtils/claudeControl` | unchanged — pre-rebrand path |
+| MCP project | `claudecontrol` (lowercase) | data continuity; not migrated |
+| MCP agent | `claude-control` (lowercase + hyphen) | data continuity; not migrated |
+| Spec name | `claudeControl:message_api` (camelCase) | spec names stored verbatim |
+| Env var prefix | `JUNTOCONTROL_*` | matches package name |
+
+When in doubt for the `project=` parameter, use lowercase `claudecontrol`.
 
 ---
 
 ## What this project is
 
-claudeControl is a FastAPI + HTMX web app where Tom logs in and exchanges
-messages with the Claude agents running across all his projects
+junto-control is a FastAPI + HTMX web app where Tom (or any human operator)
+logs in and exchanges messages with the agents running across his projects
 (shared_memory, claude_terminal, emailtriage, nimbus, etc), via the
-shared-memory MCP server.
+shared-memory MCP server. Junto is positioned as protocol-neutral — non-Claude
+agents are expected to gain channel-style capabilities, so the UI is not
+Claude-specific in its contract.
 
-The interface contract `claudeControl:message_api` v1.0.0 is owned by the
-`shared-memory@shared_memory` agent. The UI side does NOT own the contract
-and may not freelance it. Amend via `memory_send_message(to_instance="shared-memory",
-to_project="shared_memory", category="contract")`.
+The interface contract `claudeControl:message_api` v1.0.0 (spec name kept
+camelCase verbatim across the rebrand) is published in the `shared_memory`
+project's spec collection. The UI side does NOT own the contract and may not
+freelance it. **Before sending an amendment, query the spec to confirm current
+amendment authority** — there is some ambiguity between the published `owner`
+field (`shared-memory@shared_memory`) and a peer reply suggesting amendments
+should route to `main@claude_terminal` (msg_515350a9a625, Q6). Verify, then
+send `category=contract` to whichever owner the live spec metadata indicates.
 
 The shared-memory MCP server lives at `http://localhost:8080/mcp` on `sage`.
 Mongo + Chroma run inside its container — DO NOT connect to them directly.
@@ -76,7 +99,7 @@ All reads/writes go through MCP tools (rule 5 of the contract).
 
 ## `go` — Team agent macro (single-agent project)
 
-claudeControl is currently a single-agent project. The full coordinator/specialist
+junto-control is currently a single-agent project. The full coordinator/specialist
 macro from the canonical pattern (shared:patterns id `be4f1a9b1369b80f`) is
 **deferred** until a second agent exists. The team-agent macro below is
 sufficient.
@@ -195,7 +218,7 @@ Exceptions:
 
 ## Inter-Agent Messaging — routing rules
 
-claudeControl currently has no peer agent inside its own project, but
+junto-control currently has no peer agent inside its own project, but
 `claude-control` regularly messages agents in **other** projects (chiefly
 `shared-memory@shared_memory`). The routing rules below apply to those
 cross-project sends.
@@ -317,19 +340,21 @@ via env var to the UI service from the project's `.env` file. The owner key
 needed for future ops, never in MCP memory_store.
 
 ### MCP contract is server-owned
-`claudeControl:message_api` v1.0.0 lives in spec collection, owned by
-`shared-memory@shared_memory`. UI may not freelance it. Send amendments via
-`memory_send_message(to_instance="shared-memory", to_project="shared_memory",
-category="contract")`.
+`claudeControl:message_api` v1.0.0 lives in spec collection. UI may not
+freelance it. **Confirm amendment authority before sending** — see "What this
+project is" above for the open question on owner identity.
 
 ### No direct Mongo / Chroma access
 All reads/writes go through MCP tools. Period. Bypassing this re-introduces
 the contrib/ui problem and breaks the audit + sender-stamping + autopilot pipeline.
 
-### Lowercase project name
-Always pass `project="claudecontrol"` lowercase to MCP calls. Mixing case hits
-a known server-side filter bug. Spec name `claudeControl:message_api` is
-camelCase verbatim.
+### Lowercase project name (mostly defensive now)
+Pass `project="claudecontrol"` lowercase. Server normalizes at every tool
+boundary as of 2026-04-30 (`helpers.normalize_project`, commit `d8456f4`), so
+case variants of the same name collapse to one bucket — but defensive
+lowercase-on-write costs nothing and stays portable to other shared-memory
+deployments that may not yet have the fix. Spec name `claudeControl:message_api`
+is camelCase verbatim regardless.
 
 ### Subscribe gating
 `resources/subscribe` for `inbox://...` URIs has TWO server-side preconditions
@@ -338,14 +363,21 @@ that are not documented in capabilities:
 2. Caller must have access to the URI: agents → own inbox only; user-tier
    (`tom-web`) → any inbox.
 
-The capability flag `resources.subscribe = false` lies in v1.27.0 — trust the
-inbox resource template detection (`list_resource_templates`), not the flag.
-Recorded as learning `learning_48d`.
+**Capability flag was fixed 2026-05-01** — server now correctly advertises
+`resources.subscribe=true`. The inbox-resource-template detection
+workaround (in `mcp_client.py`) can stay as belt-and-suspenders or be
+removed. Recorded as learning `learning_48d`.
 
 ### Server-side destructive gate is the source of truth
-The client-side regex in `src/claudecontrol/destructive.py` is for **preview only**.
+The client-side regex in `src/juntocontrol/destructive.py` is for **preview only**.
 Never rely on it for safety. The server enforces; the UI mirrors so the human
 sees the warning before send.
+
+**Server narrowed the regex 2026-05-01:** SQL adjacency required (DELETE FROM /
+DROP TABLE / TRUNCATE TABLE), all-caps only, `deploy/production/prod` removed,
+`rm -rf` added; gate only applies at `chain_depth>0`. The UI's preview regex
+still matches the old shape — TODO: tighten to mirror the server, otherwise the
+preview will warn on prose like "ready to deploy?" that the server now ignores.
 
 ### Secrets handling
 - `.env` (gitignored): runtime config, including `TOM_WEB_API_KEY`.
@@ -374,3 +406,6 @@ sees the warning before send.
 - Interface contract: `claudeControl:message_api` v1.0.0 (project `shared_memory`).
 - State spec: `state:claude-control` (project `claudecontrol`).
 - Recorded learnings: `learning_48d` (subscribe gating preconditions).
+- Rebrand directive: msg_1659c9c8501b (Tom via shared-memory, 2026-05-06).
+- Q1-class architecture answers: msg_515350a9a625 (wire format, sub model,
+  dashboard primitives, metadata, multi-tenant, amendment routing).

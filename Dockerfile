@@ -22,4 +22,4 @@ RUN uv pip install --system .
 
 EXPOSE 8000
 
-CMD ["python", "-m", "claudecontrol.main"]
+CMD ["python", "-m", "juntocontrol.main"]

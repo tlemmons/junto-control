@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from claudecontrol.auth import SessionStore, constant_time_eq
-from claudecontrol.web import _summarize_projects
+from juntocontrol.auth import SessionStore, constant_time_eq
+from juntocontrol.web import _summarize_projects
 
 
 def test_constant_time_eq() -> None:

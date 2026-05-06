@@ -34,7 +34,7 @@ def _configure_logging(level: str) -> None:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
     _configure_logging(settings.log_level)
-    log = structlog.get_logger("claudecontrol")
+    log = structlog.get_logger("juntocontrol")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -56,7 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await client.stop()
             log.info("shutdown_done")
 
-    app = FastAPI(title="claudeControl", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="junto-control", version="0.1.0", lifespan=lifespan)
     store = SessionStore(settings.session_secret)
     app.include_router(build_router(store, settings.login_passphrase))
 
@@ -123,7 +123,7 @@ def run() -> None:
 
     settings = Settings.from_env()
     uvicorn.run(
-        "claudecontrol.main:create_app",
+        "juntocontrol.main:create_app",
         factory=True,
         host=settings.host,
         port=settings.port,

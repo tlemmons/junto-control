@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from claudecontrol.inbox import InboxBroker, InboxKey
+from juntocontrol.inbox import InboxBroker, InboxKey
 
 
 def _wrap(payload: dict[str, Any]) -> SimpleNamespace:
@@ -59,7 +59,7 @@ async def test_poll_emits_only_new_messages(fake_client: Any) -> None:
     poll = _wrap({"messages": [_msg("m3"), _msg("m2"), _msg("m1")]})
     fake_client.call.side_effect = [bootstrap, poll]
 
-    from claudecontrol.inbox import InboxStreamState
+    from juntocontrol.inbox import InboxStreamState
 
     broker = InboxBroker(fake_client)
     sub = broker.subscribe()
@@ -82,7 +82,7 @@ async def test_subscriber_project_filter(fake_client: Any) -> None:
     sub_nimbus = broker.subscribe(project_filter="nimbus")
     sub_all = broker.subscribe()
 
-    from claudecontrol.inbox import InboxEvent
+    from juntocontrol.inbox import InboxEvent
 
     await broker._broadcast(InboxEvent(InboxKey("nimbus", "x"), _msg("a")))
     await broker._broadcast(InboxEvent(InboxKey("ha", "y"), _msg("b")))
@@ -186,7 +186,7 @@ async def test_on_reconnect_resubscribes_subscribe_streams(fake_client: Any) -> 
     key_b = InboxKey("ha", "sage")
     broker._streams[key_a] = type(broker._streams[key_a] if broker._streams else None) or None  # noqa: E501
     # Simulate two streams already running: one subscribe, one poll.
-    from claudecontrol.inbox import InboxStreamState
+    from juntocontrol.inbox import InboxStreamState
 
     broker._streams = {
         key_a: InboxStreamState(mode="subscribe", notify=asyncio.Queue()),

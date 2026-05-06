@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from claudecontrol.destructive import matches_destructive
+from juntocontrol.destructive import matches_destructive
 
 
 def test_no_match_clean_text() -> None:

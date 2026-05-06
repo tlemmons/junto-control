@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from claudecontrol.config import Settings
+from juntocontrol.config import Settings
 
 
 def test_from_env_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:

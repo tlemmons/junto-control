@@ -4,9 +4,9 @@ Uses a stub MCPClient that pretends to be connected and returns canned data.
 
 Note: this script registers ONLY the web router (login/projects/inbox).
 The /healthz, /api/project/select, /ws/inbox endpoints are wired in
-src/claudecontrol/main.py:create_app and not exercised here. To do a full
+src/juntocontrol/main.py:create_app and not exercised here. To do a full
 production-style run, set TOM_WEB_API_KEY + SESSION_SECRET + LOGIN_PASSPHRASE
-in .env and run:  python -m claudecontrol.main
+in .env and run:  python -m juntocontrol.main
 
 Run:  .venv/bin/python scripts/dev_run_no_mcp.py
 """
@@ -22,10 +22,10 @@ import structlog
 import uvicorn
 from fastapi import FastAPI
 
-from claudecontrol.auth import SessionStore
-from claudecontrol.config import Settings
-from claudecontrol.inbox import InboxBroker
-from claudecontrol.web import build_router
+from juntocontrol.auth import SessionStore
+from juntocontrol.config import Settings
+from juntocontrol.inbox import InboxBroker
+from juntocontrol.web import build_router
 
 log = structlog.get_logger("dev_run")
 
@@ -164,7 +164,7 @@ def main() -> None:
         finally:
             await broker.stop_all()
 
-    app = FastAPI(title="claudeControl-dev", lifespan=lifespan)
+    app = FastAPI(title="junto-control-dev", lifespan=lifespan)
     store = SessionStore(settings.session_secret)
     app.include_router(build_router(store, settings.login_passphrase))
 

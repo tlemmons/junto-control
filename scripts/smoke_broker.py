@@ -31,7 +31,7 @@ from mcp.client.streamable_http import streamablehttp_client
 from mcp.shared.session import RequestResponder
 from pydantic import AnyUrl
 
-from claudecontrol.inbox import InboxBroker, InboxKey
+from juntocontrol.inbox import InboxBroker, InboxKey
 
 
 class SessionShim:

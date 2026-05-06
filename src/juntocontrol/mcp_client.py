@@ -174,7 +174,7 @@ class MCPClient:
                         "project": self._settings.project,
                         "claude_instance": self._settings.agent_name,
                         "role_description": (
-                            "Human operator via claudeControl web UI"
+                            "Human operator via junto-control web UI"
                         ),
                     },
                 )
@@ -211,7 +211,7 @@ class MCPClient:
                     "memory_end_session",
                     arguments={
                         "session_id": self._session_id,
-                        "summary": "claudeControl backend shutdown / reconnect",
+                        "summary": "junto-control backend shutdown / reconnect",
                     },
                 )
         self._session = None
