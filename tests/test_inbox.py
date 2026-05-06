@@ -117,6 +117,50 @@ async def test_watch_project_diffs_set(fake_client: Any) -> None:
 
 
 @pytest.mark.asyncio
+async def test_self_inbox_survives_project_rotation(fake_client: Any) -> None:
+    """The user's self-inbox stays watched even when the selected project changes."""
+    fake_client.capabilities = SimpleNamespace(inbox_resource_supported=False)
+    fake_client.call.return_value = _wrap({"agents": [{"instance": "alpha"}]})
+    self_inbox = InboxKey("claudecontrol", "claude-control")
+    broker = InboxBroker(fake_client, self_inbox=self_inbox)
+    await broker.ensure_always_watched()
+    assert self_inbox in broker._streams
+
+    await broker.watch_project("nimbus")
+    assert self_inbox in broker._streams, "self_inbox dropped after watch_project"
+
+    # Switch projects: still kept.
+    fake_client.call.return_value = _wrap({"agents": [{"instance": "beta"}]})
+    await broker.watch_project("ha")
+    assert self_inbox in broker._streams, "self_inbox dropped after second project switch"
+
+    for k in list(broker._stream_tasks.keys()):
+        await broker._stop_stream(k)
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_self_inbox_event_bypasses_project_filter(fake_client: Any) -> None:
+    """Events from the self-inbox reach a project-filtered subscriber."""
+    from juntocontrol.inbox import InboxEvent
+
+    self_inbox = InboxKey("claudecontrol", "claude-control")
+    broker = InboxBroker(fake_client, self_inbox=self_inbox)
+    sub_filtered = broker.subscribe(project_filter="nimbus")
+
+    # Reply to user's outbound: lands in self_inbox (claudecontrol/claude-control)
+    # while user is viewing nimbus. Without bypass, this would be silently dropped.
+    await broker._broadcast(InboxEvent(self_inbox, _msg("reply-to-user")))
+    assert sub_filtered.queue.qsize() == 1
+    event = sub_filtered.queue.get_nowait()
+    assert event.message["id"] == "reply-to-user"
+
+    # Sanity: a NON-self-inbox event from a different project IS still filtered out.
+    await broker._broadcast(InboxEvent(InboxKey("ha", "sage"), _msg("unrelated")))
+    assert sub_filtered.queue.qsize() == 0
+
+
+@pytest.mark.asyncio
 async def test_subscribe_path_emits_on_notification(fake_client: Any) -> None:
     """When inbox_resource_supported, broker subscribes and reads on notifications."""
     fake_client.capabilities = SimpleNamespace(inbox_resource_supported=True)

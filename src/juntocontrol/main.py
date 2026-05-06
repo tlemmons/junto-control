@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 from .auth import SessionStore
 from .config import Settings
-from .inbox import InboxBroker
+from .inbox import InboxBroker, InboxKey
 from .mcp_client import MCPClient
 from .web import build_router
 
@@ -39,7 +39,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         client = MCPClient(settings)
-        broker = InboxBroker(client)
+        self_inbox = InboxKey(project=settings.project, agent=settings.agent_name)
+        broker = InboxBroker(client, self_inbox=self_inbox)
         client.set_notification_handler(broker.on_inbox_notification)
         client.register_reconnect_handler(broker.on_reconnect)
         app.state.mcp = client
@@ -47,6 +48,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.settings = settings
         log.info("startup_begin", mcp_url=settings.mcp_url, project=settings.project)
         await client.start()
+        await broker.ensure_always_watched()
         log.info("startup_done", connected=client.connected, session_id=client.session_id)
         try:
             yield

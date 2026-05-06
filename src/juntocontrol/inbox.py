@@ -64,7 +64,11 @@ class InboxBroker:
     transport-agnostic.
     """
 
-    def __init__(self, client: MCPClient) -> None:
+    def __init__(
+        self,
+        client: MCPClient,
+        self_inbox: InboxKey | None = None,
+    ) -> None:
         self._client = client
         self._streams: dict[InboxKey, InboxStreamState] = {}
         self._stream_tasks: dict[InboxKey, asyncio.Task[None]] = {}
@@ -72,6 +76,14 @@ class InboxBroker:
         self._subscribers: set[Subscriber] = set()
         self._lock = asyncio.Lock()
         self._stopping = False
+        # Streams that survive watch_project() rotations and bypass subscriber
+        # project_filter. The UI's "self inbox" lives here so that replies to
+        # messages Tom sent (which the server stamps from_instance=<session
+        # claude_instance>) always surface in the active project view rather
+        # than getting routed to an inbox the broker isn't watching.
+        self._always_watch: set[InboxKey] = set()
+        if self_inbox is not None:
+            self._always_watch.add(self_inbox)
 
     @property
     def watched_keys(self) -> list[InboxKey]:
@@ -82,14 +94,28 @@ class InboxBroker:
         payload = _unwrap_tool_result(result)
         return list(payload.get("agents", []))
 
+    async def ensure_always_watched(self) -> None:
+        """Start streams for any always-watch keys that aren't running yet.
+
+        Idempotent. Call once after the MCP client has connected.
+        """
+        async with self._lock:
+            for k in self._always_watch:
+                if k not in self._streams:
+                    await self._start_stream(k)
+
     async def watch_project(self, project: str) -> list[InboxKey]:
-        """Set the watched-stream set to every agent currently in `project`."""
+        """Set the watched-stream set to every agent currently in `project`.
+
+        Streams in self._always_watch survive across calls — they are not
+        rotated out when the user switches projects.
+        """
         agents = await self.list_agents_in_project(project)
         keys = {InboxKey(project=project, agent=a["instance"]) for a in agents}
         async with self._lock:
             current = set(self._streams.keys())
             to_add = keys - current
-            to_remove = current - keys
+            to_remove = current - keys - self._always_watch
             for k in to_remove:
                 await self._stop_stream(k)
             for k in to_add:
@@ -297,11 +323,19 @@ class InboxBroker:
         return list(payload.get("messages", []))
 
     async def _broadcast(self, event: InboxEvent) -> None:
+        # Always-watch keys (e.g. the user's own inbox) bypass project filters
+        # so replies to user-originated sends surface regardless of which
+        # project the browser tab is currently viewing.
+        passes_filter = event.key in self._always_watch
         for sub in list(self._subscribers):
             if sub.closed:
                 self._subscribers.discard(sub)
                 continue
-            if sub.project_filter and sub.project_filter != event.key.project:
+            if (
+                sub.project_filter
+                and sub.project_filter != event.key.project
+                and not passes_filter
+            ):
                 continue
             try:
                 sub.queue.put_nowait(event)
