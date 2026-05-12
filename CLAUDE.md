@@ -10,10 +10,10 @@ backlog were carried over by the rename tooling. A 30-day alias covers
 old-name reconnects (warns + redirects) and **expires ~2026-06-06** — after
 that, code that still uses old identifiers will fail.
 
-**Local working directory is still `/home/tlemmons/sharedUtils/claudeControl`**
-— memory@junto held off on the filesystem move pending Tom's review of any
-local scripts/cron that might reference the old path. Tracked as
-`backlog_71f0b9590f4a` (move → `~/sharedUtils/junto/junto-control`).
+**Local working directory: `/home/tlemmons/sharedUtils/junto/junto-control`**
+(moved 2026-05-12 from `~/sharedUtils/claudeControl`; closes
+`backlog_71f0b9590f4a`). Editable install re-pointed with `uv pip install -e .`
+from the new location.
 
 ## Claude Identity (REQUIRED — DO THIS FIRST)
 
@@ -41,7 +41,7 @@ memory_start_session(
     project="junto",
     claude_instance="control",
     role_description="Web UI backend that lets a human (Tom) send/receive messages with Claude agents via the shared-memory MCP server",
-    working_directory="/home/tlemmons/sharedUtils/claudeControl"
+    working_directory="/home/tlemmons/sharedUtils/junto/junto-control"
 )
 ```
 
@@ -56,7 +56,7 @@ Multiple naming layers — keep them straight:
 |-------|-------|-----|
 | Python package | `juntocontrol` | post-rebrand code identity (`from juntocontrol.X`) |
 | Repo / public name | `junto-control` | `tlemmons/junto-control` |
-| Local working dir | `/home/tlemmons/sharedUtils/claudeControl` | pre-rebrand path; filesystem move pending (backlog_71f0b9590f4a) |
+| Local working dir | `/home/tlemmons/sharedUtils/junto/junto-control` | moved 2026-05-12 from `~/sharedUtils/claudeControl` |
 | MCP project | `junto` (lowercase) | post-cutover canonical |
 | MCP agent | `control` (lowercase) | post-cutover canonical |
 | MCP alias (until 2026-06-06) | `claudecontrol` / `claude-control` | server redirects with warning |
@@ -118,7 +118,7 @@ sufficient.
 Run in parallel where possible. **STOP at step 5; do not execute the plan
 until Tom approves.**
 
-1. `memory_start_session(project="junto", claude_instance="control", working_directory="/home/tlemmons/sharedUtils/claudeControl")`. Read response: `relevant_locks`, `signals`, `interface_updates`, `blocking_others`.
+1. `memory_start_session(project="junto", claude_instance="control", working_directory="/home/tlemmons/sharedUtils/junto/junto-control")`. Read response: `relevant_locks`, `signals`, `interface_updates`, `blocking_others`.
 2. Gather own context (parallel calls):
    - `memory_get_spec(name="state:control", project="junto")`
    - `memory_get_messages()` (omit `include_delivered` unless reviewing acked threads)
@@ -320,7 +320,7 @@ outrank new ones. ALWAYS:
 ### Today
 | Agent | Working dir | Read | Write |
 |-------|-------------|------|-------|
-| `control@junto` | `/home/tlemmons/sharedUtils/claudeControl` | full project tree | full project tree |
+| `control@junto` | `/home/tlemmons/sharedUtils/junto/junto-control` | full project tree | full project tree |
 
 ### Read-only / never-touch
 - `.env`, `.secrets.local`, any future credentials file — read for runtime, never log values, never commit, never write to MCP memory_store.
