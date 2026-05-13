@@ -89,6 +89,10 @@ class InboxBroker:
     def watched_keys(self) -> list[InboxKey]:
         return list(self._streams.keys())
 
+    @property
+    def always_watch_keys(self) -> list[InboxKey]:
+        return list(self._always_watch)
+
     async def list_agents_in_project(self, project: str) -> list[dict[str, Any]]:
         result = await self._client.call("memory_list_agents", project=project)
         payload = _unwrap_tool_result(result)
@@ -256,9 +260,18 @@ class InboxBroker:
 
     async def _bootstrap(self, key: InboxKey, state: InboxStreamState) -> None:
         try:
-            messages = await self._fetch(key, since_iso=None)
+            # Prefer the inbox resource read when supported — it's the same
+            # data path the subscribe loop uses, and unlike
+            # memory_get_messages(for_instance=...) it isn't behind a
+            # project-admin gate that rejects user-tier sessions.
+            if self._subscribe_supported():
+                payload = await self._client.read_resource(key.uri())
+                messages = list(payload.get("messages", []))
+            else:
+                messages = await self._fetch(key, since_iso=None)
+            # Normalize newest-first regardless of source order.
+            messages.sort(key=lambda m: m.get("created") or "", reverse=True)
             if messages:
-                # Newest first per server convention; remember the newest seen.
                 newest = messages[0]
                 state.last_message_id = newest.get("id")
                 state.last_cursor = newest.get("created")
@@ -267,6 +280,7 @@ class InboxBroker:
                 "inbox_bootstrapped",
                 key=str(key),
                 seeded_from=state.last_message_id,
+                count=len(messages),
             )
         except Exception as exc:
             log.warning("inbox_bootstrap_failed", key=str(key), error=str(exc))
@@ -289,8 +303,11 @@ class InboxBroker:
     ) -> None:
         if not messages:
             return
-        # Server returns newest first. We deliver in oldest→newest order
-        # so subscribers see them in send order.
+        # Defensive: normalize newest-first regardless of caller source —
+        # memory_get_messages returns newest-first, the inbox resource read
+        # returns oldest-first. We then deliver oldest→newest so subscribers
+        # see send order.
+        messages = sorted(messages, key=lambda m: m.get("created") or "", reverse=True)
         new_messages: list[dict[str, Any]] = []
         for msg in messages:
             mid = msg.get("id")
@@ -327,6 +344,8 @@ class InboxBroker:
         # so replies to user-originated sends surface regardless of which
         # project the browser tab is currently viewing.
         passes_filter = event.key in self._always_watch
+        delivered = 0
+        skipped = 0
         for sub in list(self._subscribers):
             if sub.closed:
                 self._subscribers.discard(sub)
@@ -336,8 +355,19 @@ class InboxBroker:
                 and sub.project_filter != event.key.project
                 and not passes_filter
             ):
+                skipped += 1
                 continue
             try:
                 sub.queue.put_nowait(event)
+                delivered += 1
             except asyncio.QueueFull:
                 log.warning("subscriber_queue_full_dropping", key=str(event.key))
+        log.info(
+            "broker_broadcast",
+            key=str(event.key),
+            msg_id=event.message.get("id"),
+            subscribers_total=len(self._subscribers),
+            delivered=delivered,
+            skipped_by_filter=skipped,
+            always_watch=passes_filter,
+        )

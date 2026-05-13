@@ -166,12 +166,19 @@ async def test_subscribe_path_emits_on_notification(fake_client: Any) -> None:
     fake_client.capabilities = SimpleNamespace(inbox_resource_supported=True)
     fake_client.subscribe_inbox = AsyncMock()
     fake_client.unsubscribe_inbox = AsyncMock()
+    # Bootstrap and subscribe-fired notifications both go through read_resource
+    # now (bootstrap previously used memory_get_messages but that path is
+    # gated to project admins server-side). Use side_effect to give bootstrap
+    # only m1 as baseline, then have the post-notification read reveal m2.
     fake_client.read_resource = AsyncMock(
-        return_value={"messages": [_msg("m2"), _msg("m1")]}
+        side_effect=[
+            {"messages": [_msg("m1", created="2026-04-29T15:00:00Z")]},
+            {"messages": [
+                _msg("m2", created="2026-04-29T15:00:01Z"),
+                _msg("m1", created="2026-04-29T15:00:00Z"),
+            ]},
+        ]
     )
-    # Bootstrap call goes through .call("memory_get_messages", ...) and returns m1 only,
-    # so when the resource read later sees m2+m1, only m2 is new.
-    fake_client.call.return_value = _wrap({"messages": [_msg("m1")]})
 
     broker = InboxBroker(fake_client)
     sub = broker.subscribe()

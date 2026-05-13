@@ -332,19 +332,34 @@ def _summarize_projects(agents: list[dict[str, Any]]) -> list[dict[str, Any]]:
 async def _seed_inbox(
     client: MCPClient, broker: InboxBroker, project: str
 ) -> list[dict[str, Any]]:
-    """Initial-page render: fetch ~50 most recent messages across watched agents."""
+    """Initial-page render: fetch ~50 most recent messages across watched agents.
+
+    Always-watch keys (the user's self-inbox) are included regardless of the
+    selected project — same bypass principle the broker applies to live pushes.
+    Otherwise navigating to /inbox?project=X hides replies addressed to the
+    user's runtime-identity mailbox.
+
+    Prefer the inbox resource read over memory_get_messages(for_instance=...)
+    because the latter is gated to project admins server-side, and the
+    user-tier session is not auto-admin'd — so memory_get_messages returns
+    a permission-denied payload that the page silently renders as empty.
+    """
+    always_watch = set(broker.always_watch_keys)
     seeded: list[dict[str, Any]] = []
     for key in broker.watched_keys:
-        if key.project != project:
+        if key.project != project and key not in always_watch:
             continue
         try:
-            result = await client.call(
-                "memory_get_messages",
-                for_instance=key.agent,
-                limit=20,
-                include_delivered=True,
-            )
-            payload = _unwrap_tool_result(result)
+            if client.capabilities.inbox_resource_supported:
+                payload = await client.read_resource(key.uri())
+            else:
+                result = await client.call(
+                    "memory_get_messages",
+                    for_instance=key.agent,
+                    limit=20,
+                    include_delivered=True,
+                )
+                payload = _unwrap_tool_result(result)
             for msg in payload.get("messages", []):
                 seeded.append({**msg, "agent": key.agent})
         except Exception as exc:
