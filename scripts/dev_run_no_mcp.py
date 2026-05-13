@@ -141,7 +141,7 @@ def main() -> None:
     settings = Settings(
         mcp_url="stub",
         tom_web_api_key="stub",
-        agent_name="claude-control",
+        agent_name="user",
         project="claudecontrol",
         session_secret="stub-session-secret-for-dev-only-do-not-use" * 2,
         login_passphrase="dev",

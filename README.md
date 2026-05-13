@@ -46,15 +46,16 @@ python -m juntocontrol.main
 | `TOM_WEB_API_KEY` | yes | user-tier API key. Server-injected; never log or commit |
 | `SESSION_SECRET` | yes | signs browser session cookies |
 | `LOGIN_PASSPHRASE` | yes | passphrase for the single-user `/login` form |
-| `JUNTOCONTROL_AGENT_NAME` | no | default `claude-control` (legacy MCP identity, kept for data continuity) |
-| `JUNTOCONTROL_PROJECT` | no | default `claudecontrol` (legacy MCP project bucket) |
+| `JUNTOCONTROL_AGENT_NAME` | no | default `user` — the MCP `claude_instance` the UI session opens as (becomes `from_instance` on outbound messages). Override with the human operator's name |
+| `JUNTOCONTROL_PROJECT` | no | default `claudecontrol` — the MCP project the UI session opens against. Kept post-rebrand for data continuity (existing message history, state spec, function registry under this name) |
 | `HOST` / `PORT` | no | default `0.0.0.0:8000` |
 | `LOG_LEVEL` | no | default `INFO` |
 
-The `claude-control` / `claudecontrol` defaults are intentional — the package was renamed
-from `claudecontrol` to `juntocontrol` but the MCP identity values are kept so the project's
-existing state spec, registered functions, message threads, and learnings under those
-identifiers stay reachable. New deployments can override these freely.
+The `claudecontrol` project default is intentional — the package was renamed from
+`claudecontrol` to `juntocontrol` but the MCP project bucket is kept so existing state
+specs, message threads, registered functions, and learnings stay reachable. The
+`JUNTOCONTROL_AGENT_NAME` default of `user` is just a placeholder; set it to the human
+operator's identifier (e.g. `tom`).
 
 ## Self-hosting requirements
 

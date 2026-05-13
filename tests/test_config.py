@@ -25,7 +25,7 @@ def test_from_env_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LOGIN_PASSPHRASE", "p")
     s = Settings.from_env()
     assert s.mcp_url == "http://localhost:8080/mcp"
-    assert s.agent_name == "claude-control"
+    assert s.agent_name == "user"
     assert s.project == "claudecontrol"
     assert s.port == 8000
     assert s.log_level == "INFO"

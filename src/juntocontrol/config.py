@@ -27,7 +27,7 @@ class Settings:
         return cls(
             mcp_url=os.environ.get("MCP_URL", "http://localhost:8080/mcp").strip(),
             tom_web_api_key=required("TOM_WEB_API_KEY"),
-            agent_name=os.environ.get("JUNTOCONTROL_AGENT_NAME", "claude-control").strip(),
+            agent_name=os.environ.get("JUNTOCONTROL_AGENT_NAME", "user").strip(),
             project=os.environ.get("JUNTOCONTROL_PROJECT", "claudecontrol").strip(),
             session_secret=required("SESSION_SECRET"),
             login_passphrase=required("LOGIN_PASSPHRASE"),
